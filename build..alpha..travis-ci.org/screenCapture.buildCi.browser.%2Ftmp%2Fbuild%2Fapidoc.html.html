@@ -1,0 +1,261 @@
+<html><head></head><body><div class="apidocDiv">
+<style>
+/*csslint
+*/
+.apidocDiv {
+    background: #fff;
+    font-family: Arial, Helvetica, sans-serif;
+}
+.apidocDiv a[href] {
+    color: #33f;
+    font-weight: bold;
+    text-decoration: none;
+}
+.apidocDiv a[href]:hover {
+    text-decoration: underline;
+}
+.apidocCodeCommentSpan {
+    background: #bbf;
+    color: #000;
+    display: block;
+}
+.apidocCodeKeywordSpan {
+    color: #d00;
+    font-weight: bold;
+}
+.apidocCodePre {
+    background: #eef;
+    border: 1px solid;
+    color: #777;
+    padding: 5px;
+    white-space: pre-wrap;
+}
+.apidocFooterDiv {
+    margin-top: 20px;
+    text-align: center;
+}
+.apidocModuleLi {
+    margin-top: 10px;
+}
+.apidocSectionDiv {
+    border-top: 1px solid;
+    margin-top: 20px;
+}
+.apidocSignatureSpan {
+    color: #777;
+    font-weight: bold;
+}
+</style>
+<h1>api documentation for
+    <a href="https://github.com/rickbergfalk/ftp-deploy#readme">ftp-deploy (v1.2.0)</a>
+</h1>
+<h4>Ftp a folder from your local disk to an ftp destination. Does not delete from destination directory. Derived from grunt-ftp-deploy</h4>
+<div class="apidocSectionDiv"><a href="#apidoc.tableOfContents" id="apidoc.tableOfContents"><h1>table of contents</h1></a><ol>
+
+    <li class="apidocModuleLi"><a href="#apidoc.module.ftp-deploy">module ftp-deploy</a><ol>
+
+        <li>
+
+            <a class="apidocElementLiA" href="#apidoc.element.ftp-deploy.ftp-deploy">
+            function <span class="apidocSignatureSpan"></span>ftp-deploy
+            <span class="apidocSignatureSpan">()</span>
+            </a>
+
+        </li>
+
+        <li>
+
+            <a class="apidocElementLiA" href="#apidoc.element.ftp-deploy.super_">
+            function <span class="apidocSignatureSpan">ftp-deploy.</span>super_
+            <span class="apidocSignatureSpan">()</span>
+            </a>
+
+        </li>
+
+    </ol></li>
+
+</ol></div>
+
+<div class="apidocSectionDiv">
+<h1><a href="#apidoc.module.ftp-deploy" id="apidoc.module.ftp-deploy">module ftp-deploy</a></h1>
+
+
+    <h2>
+        <a href="#apidoc.element.ftp-deploy.ftp-deploy" id="apidoc.element.ftp-deploy.ftp-deploy">
+        function <span class="apidocSignatureSpan"></span>ftp-deploy
+        <span class="apidocSignatureSpan">()</span>
+        </a>
+    </h2>
+    <ul>
+    <li>description and source-code<pre class="apidocCodePre">ftp-deploy = function () {
+	// The constructor for the super class.
+	events.EventEmitter.call(this);
+
+	const thisDeployer = this;
+
+	let transferredFileCount = 0;
+	let ftp;
+	let localRoot;
+	let remoteRoot;
+	const partialDirectories = [];   // Holds list of directories to check &amp; create (excluding local root path)
+	const partialFilePaths = [];     // Holds list of partial file paths to upload
+	// var parallelUploads = 1;      // NOTE: this can be added in when sftp is supported
+	let exclude = [];
+	let include = [];
+	let continueOnError = false;
+
+	function canIncludeFile(filePath) {
+		let i;
+
+		if (include.length &gt; 0) {
+			for (i = 0; i &lt; include.length; i++) {
+				if (minimatch(filePath, include[i], {matchBase: true})) {
+					return true;
+				}
+			}
+			// Fallthrough to exclude list
+		}
+
+		if (exclude.length &gt; 0) {
+			for (i = 0; i &lt; exclude.length; i++) {
+				if (minimatch(filePath, exclude[i], {matchBase: true})) {
+					return false;
+				}
+			}
+		}
+		return true;
+	}
+
+	// A method for parsing the source location and storing the information into a suitably formated object
+	function dirParseSync(startDir, result) {
+		let i;
+		let tmpPath;
+		let currFile;
+
+		// Initialize the `result` object if it is the first iteration
+		if (result === undefined) {
+			result = {};
+			result[path.sep] = [];
+		}
+
+		// Check if `startDir` is a valid location
+		if (!fs.existsSync(startDir)) {
+			console.error(startDir + 'is not an existing location');
+		}
+
+		// Iterate throught the contents of the `startDir` location of the current iteration
+		const files = fs.readdirSync(startDir);
+		for (i = 0; i &lt; files.length; i++) {
+			currFile = path.join(startDir, files[i]);
+
+			if (fs.lstatSync(currFile).isDirectory()) {
+				tmpPath = path.relative(localRoot, currFile);
+
+				// Check exclude rules
+				if (canIncludeFile(tmpPath)) {
+					if (!has(result, tmpPath)) {
+						result[tmpPath] = [];
+						partialDirectories.push(tmpPath);
+					}
+					dirParseSync(currFile, result);
+				}
+			} else {
+				tmpPath = path.relative(localRoot, startDir);
+				if (tmpPath.length === 0) {
+					tmpPath = path.sep;
+				}
+
+				// Check exclude rules
+				const partialFilePath = path.join(tmpPath, files[i]);
+				if (canIncludeFile(partialFilePath)) {
+					result[tmpPath].push(files[i]);
+					partialFilePaths.push(partialFilePath);
+				}
+			}
+		}
+
+		return result;
+	}
+
+	// A method for uploading a single file
+	function ftpPut(partialFilePath, cb) {
+		let remoteFilePath = remoteRoot + '/' + partialFilePath;
+		remoteFilePath = remoteFilePath.replace(/\\/g, '/');
+
+		const fullLocalPath = path.join(localRoot, partialFilePath);
+
+		const emitData = {
+			totalFileCount: partialFilePaths.length,
+			transferredFileCount,
+			percentComplete: Math.round((transferredFileCount / partialFilePaths.length) * 100),
+			filename: partialFilePath
+		};
+
+		thisDeployer.emit('uploading', emitData);
+
+		ftp.put(fullLocalPath, remoteFilePath, err =&gt; {
+			if (err) {
+				emitData.err = err;
+				thisDeployer.emit('error', emitData); // Error event from 0.5.x TODO: either expand error events or remove this
+				thisDeployer.emit('upload-error', emitData);
+				if (continueOnError) {
+					cb();
+				} else {
+					cb(err);
+				}
+			} else {
+				transferredFileCount++;
+				emitData.transferredFileCount = transferredFileCount;
+				thisDeployer.emit('uploaded', emitData);
+				cb();
+			}
+		});
+	}
+
+	function ftpMakeDirectoriesIfNeeded(cb) {
+		async.eachSeries(partialDirectories, ftpMakeRemoteDirectoryIfNeeded, err =&gt; {
+			cb(err);
+		});
+	}
+
+  // A method for changing the remote working directory and creating one if it doesn't already exist
+	function ftpMakeRemoteDirectoryIfNeeded(partialRemoteDirectory, cb) {
+    // Add the remote root, and clean up the slashes
+		let fullRemoteDirectory = remoteRoot + '/' + partialRemoteDirectory.replace(/\\/gi, '/');
+
+    // Add leading slash if it is missing
+		if (fullRemoteDirectory.charAt(0) !== '/') {
+			fullRemoteDirectory = '/' + fullRemoteDirectory;
+		}
+
+    // Remove double // if present
+		fullRemoteDirectory = fullRemoteDirectory.replace(/\/\//g, '/');
+		ftp.raw.cwd(fullRemoteDirector ...</pre></li>
+    <li>example usage<pre class="apidocCodePre">n/a</pre></li>
+    </ul>
+
+
+
+    <h2>
+        <a href="#apidoc.element.ftp-deploy.super_" id="apidoc.element.ftp-deploy.super_">
+        function <span class="apidocSignatureSpan">ftp-deploy.</span>super_
+        <span class="apidocSignatureSpan">()</span>
+        </a>
+    </h2>
+    <ul>
+    <li>description and source-code<pre class="apidocCodePre">function EventEmitter() {
+  EventEmitter.init.call(this);
+}</pre></li>
+    <li>example usage<pre class="apidocCodePre">n/a</pre></li>
+    </ul>
+
+
+</div>
+
+<div class="apidocFooterDiv">
+    [ this document was created with
+    <a href="https://github.com/kaizhu256/node-utility2" target="_blank">utility2</a>
+    ]
+</div>
+</div>
+</body></html>
