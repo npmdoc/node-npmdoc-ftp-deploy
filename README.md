@@ -1,6 +1,6 @@
 # npmdoc-ftp-deploy
 
-#### api documentation for  [ftp-deploy (v1.2.0)](https://github.com/rickbergfalk/ftp-deploy#readme)  [![npm package](https://img.shields.io/npm/v/npmdoc-ftp-deploy.svg?style=flat-square)](https://www.npmjs.org/package/npmdoc-ftp-deploy) [![travis-ci.org build-status](https://api.travis-ci.org/npmdoc/node-npmdoc-ftp-deploy.svg)](https://travis-ci.org/npmdoc/node-npmdoc-ftp-deploy)
+#### basic api documentation for  [ftp-deploy (v1.2.0)](https://github.com/rickbergfalk/ftp-deploy#readme)  [![npm package](https://img.shields.io/npm/v/npmdoc-ftp-deploy.svg?style=flat-square)](https://www.npmjs.org/package/npmdoc-ftp-deploy) [![travis-ci.org build-status](https://api.travis-ci.org/npmdoc/node-npmdoc-ftp-deploy.svg)](https://travis-ci.org/npmdoc/node-npmdoc-ftp-deploy)
 
 #### Ftp a folder from your local disk to an ftp destination. Does not delete from destination directory. Derived from grunt-ftp-deploy
 
